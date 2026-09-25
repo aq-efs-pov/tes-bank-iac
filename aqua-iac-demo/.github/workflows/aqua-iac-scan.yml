@@ -1,0 +1,45 @@
+name: Aqua IaC Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  iac-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # --- Terraform plan file generation (for plan scanning) ---
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Generate Terraform plan JSON
+        working-directory: terraform
+        run: |
+          terraform init -input=false
+          terraform plan -input=false -out=tfplan
+          mkdir -p ../terraform-plan
+          terraform show -json tfplan > ../terraform-plan/tfplan.json
+          rm -f tfplan
+
+      # --- Aqua scan: HCL, plan JSON, CloudFormation, K8s, Helm, Kustomize, Dockerfile, ARM ---
+      - name: Aqua Security scan
+        uses: docker://aquasec/aqua-scanner
+        with:
+          args: trivy fs --scanners misconfig,vuln,secret --skip-dirs terraform/.terraform .
+        env:
+          AQUA_KEY: ${{ secrets.AQUA_KEY }}
+          AQUA_SECRET: ${{ secrets.AQUA_SECRET }}
+          GITHUB_TOKEN: ${{ github.token }}
+          # US tenant shown. For EU use:
+          #   AQUA_URL: https://api.eu-1.supply-chain.cloud.aquasec.com
+          #   CSPM_URL: https://eu-1.api.cloudsploit.com
+          AQUA_URL: https://api.supply-chain.cloud.aquasec.com
+          CSPM_URL: https://api.cloudsploit.com
+          TRIVY_RUN_AS_PLUGIN: aqua

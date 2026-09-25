@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kustomize-api
+spec:
+  selector:
+    matchLabels: { app: kustomize-api }
+  template:
+    metadata:
+      labels: { app: kustomize-api }
+    spec:
+      containers:
+        - name: api
+          image: busybox
+          command: ["sleep", "3600"]
+          securityContext:
+            capabilities:
+              add: ["SYS_ADMIN", "NET_ADMIN"]
